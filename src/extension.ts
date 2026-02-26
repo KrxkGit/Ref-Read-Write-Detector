@@ -100,18 +100,21 @@ class FileGroupNode extends vscode.TreeItem {
         // 定义修改性动词前缀 (用于猜测方法意图)
         const mutatingPrefixes = ['set', 'add', 'remove', 'insert', 'delete', 'update', 'append', 'replace', 'clear', 'reset', 'sort', 'exchange'];
 
+        // 在匹配 = 的地方增加了 (?!=) 断言，防止匹配到 ==, ===, >=, <=, !=
+        // 注意：[-+*/%&|^] 包含了常见的 +=, -= 等，但不包含 <, >, !，所以 >=, <=, != 本身就不会被前面的字符集匹配，
+        // 唯独 == 会被匹配，所以重点是排除 ==。
+
         // 1. [Direct Write] 匹配: var = ... 或 var += ... (排除前面有点的情况)
-        const directWriteRegex = new RegExp(`(?<!\\.|@)\\b${varName}\\b\\s*([-+*/%&|^]?=|\\+\\+|--)`);
+        // 修复逻辑：([-+*/%&|^]?=(?!=)|\\+\\+|--)
+        const directWriteRegex = new RegExp(`(?<!\\.|@)\\b${varName}\\b\\s*([-+*/%&|^]?=(?!=)|\\+\\+|--)`);
 
         // 2. [Dot Setter] 匹配: .var = ... (例如 self.var = 1)
-        const dotSetterRegex = new RegExp(`\\.\\b${varName}\\b\\s*([-+*/%&|^]?=|\\+\\+|--)`);
+        const dotSetterRegex = new RegExp(`\\.\\b${varName}\\b\\s*([-+*/%&|^]?=(?!=)|\\+\\+|--)`);
 
         // 3. [Chained Modify] 匹配: var.child = ... (例如 self.view.frame = ...)
-        // 允许前面有前缀，且后面紧跟 .属性 = 
-        const chainedModifyRegex = new RegExp(`(?:\\.|^|\\s)\\b${varName}\\b\\.[a-zA-Z0-9_]+\\s*([-+*/%&|^]?=|\\+\\+|--)`);
+        const chainedModifyRegex = new RegExp(`(?:\\.|^|\\s)\\b${varName}\\b\\.[a-zA-Z0-9_]+\\s*([-+*/%&|^]?=(?!=)|\\+\\+|--)`);
 
         // 4. [Method Receiver] 匹配: [var method] 或 [self.var method]
-        // 捕获组1: 方法名 (用于后续判断是否是修改性方法)
         const methodReceiverRegex = new RegExp(`\\[\\s*(?:[\\w]+\\.)?\\b${varName}\\b\\s+([a-zA-Z0-9_]+)`);
 
         // 5. [Explicit Setter] 匹配: setVar:
@@ -129,7 +132,7 @@ class FileGroupNode extends vscode.TreeItem {
             let handled = false;
 
             if (isObjC) {
-                // 预处理：去除注释和字符串内容，防止误判 (简单过滤)
+                // 预处理：去除注释和字符串内容，防止误判
                 const cleanLine = lineText.replace(/\/\/.*|\/\*[\s\S]*?\*\/|@"[^"]*"/g, '');
 
                 // 优先级判断逻辑
@@ -156,15 +159,13 @@ class FileGroupNode extends vscode.TreeItem {
                 else {
                     const methodMatch = cleanLine.match(methodReceiverRegex);
                     if (methodMatch) {
-                        const methodName = methodMatch[1]; // 获取方法名
+                        const methodName = methodMatch[1];
                         const isMutating = mutatingPrefixes.some(prefix => methodName.toLowerCase().startsWith(prefix));
 
                         if (isMutating) {
-                            // 修改性方法 (红色图标)
                             item.iconPath = new vscode.ThemeIcon('symbol-event', new vscode.ThemeColor('charts.red'));
-                            item.label = `【Mutating】` + item.label; // 可选：在标签后追加提示
+                            item.label = `【Mutating】` + item.label;
                         } else {
-                            // 只读/普通方法 (蓝色图标)
                             item.iconPath = new vscode.ThemeIcon('symbol-method', new vscode.ThemeColor('debugIcon.stepIntoForeground'));
                         }
                         buckets.method.push(item);
@@ -175,12 +176,11 @@ class FileGroupNode extends vscode.TreeItem {
 
             // 非 ObjC 或 ObjC 中未被上述逻辑捕获的情况 (Fallback)
             if (!handled) {
-                // 简单的通用赋值检测
-                if (new RegExp(`\\b${this.varName}\\b\\s*=[^=]`).test(lineText)) {
+                // 这里的通用检测也建议加上 (?!=) 以防万一，虽然上面的逻辑应该已经拦截了
+                if (new RegExp(`\\b${this.varName}\\b\\s*=(?!=)`).test(lineText)) {
                     item.iconPath = new vscode.ThemeIcon('edit');
                     buckets.direct.push(item);
                 } else {
-                    // 默认为读取/作为参数
                     item.iconPath = new vscode.ThemeIcon('book', new vscode.ThemeColor('charts.blue'));
                     buckets.value.push(item);
                 }
