@@ -1,0 +1,8 @@
+{
+    "category.direct": "Direct Writes",
+    "category.prop": "Property/Chained",
+    "category.setter": "Setter Calls",
+    "category.method": "Instance Methods",
+    "category.value": "Value Access",
+    "history.title": "Analysis: "
+}

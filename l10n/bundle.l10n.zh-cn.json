@@ -1,0 +1,8 @@
+{
+    "category.direct": "变量赋值 (Write)",
+    "category.prop": "属性/链式修改 (Prop)",
+    "category.setter": "Setter 调用",
+    "category.method": "方法调用 (Receiver)",
+    "category.value": "读取/作为参数 (Read)",
+    "history.title": "分析: "
+}

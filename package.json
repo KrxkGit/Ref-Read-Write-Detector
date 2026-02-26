@@ -2,10 +2,11 @@
   "name": "ref-read-write-detector",
   "displayName": "ref-read-write-detector",
   "description": "",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "engines": {
     "vscode": "^1.100.0"
   },
+  "l10n": "./l10n",
   "categories": [
     "Other"
   ],
@@ -69,7 +70,22 @@
           "group": "navigation"
         }
       ]
-    }
+    },
+    "configuration": [
+      {
+        "title": "ref-read-write-detector",
+        "properties": {
+          "ref-read-write-detector.customMutatingPrefixes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "description": "%setting.desc%"
+          }
+        }
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

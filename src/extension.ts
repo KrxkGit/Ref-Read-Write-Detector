@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
+import { ConfigManager } from './config';
 
 export function activate(context: vscode.ExtensionContext) {
+    ConfigManager.init();
+
     const provider = new RefReadWriteProvider();
     const treeView = vscode.window.createTreeView('refWriteView', {
         treeDataProvider: provider,
@@ -59,7 +62,7 @@ class HistoryGroupNode extends vscode.TreeItem {
     public fileGroups: FileGroupNode[] = [];
     constructor(public readonly varName: string, public readonly langId: string, private locations: vscode.Location[]) {
         // 使用 l10n 或 package.nls 中的前缀
-        super(`分析: ${varName}`, vscode.TreeItemCollapsibleState.Expanded);
+        super(`${vscode.l10n.t('history.title')}: ${varName}`, vscode.TreeItemCollapsibleState.Expanded);
         this.iconPath = new vscode.ThemeIcon('history', new vscode.ThemeColor('charts.purple'));
         this.description = `[${langId}]`;
     }
@@ -98,7 +101,7 @@ class FileGroupNode extends vscode.TreeItem {
         const capVarName = varName.charAt(0).toUpperCase() + varName.slice(1);
 
         // 定义修改性动词前缀 (用于猜测方法意图)
-        const mutatingPrefixes = ['set', 'add', 'remove', 'insert', 'delete', 'update', 'append', 'replace', 'clear', 'reset', 'sort', 'exchange'];
+        const mutatingPrefixes = ConfigManager.mutatingPrefixes;
 
         // 1. [Direct Write] 匹配: var = ... 或 var += ...
         const directWriteRegex = new RegExp(`(?<!\\.|@)\\b${varName}\\b\\s*([-+*/%&|^]?=(?!=)|\\+\\+|--)`);
@@ -179,7 +182,6 @@ class FileGroupNode extends vscode.TreeItem {
             }
         }
 
-        const useZh = vscode.env.language === 'zh-cn';
         this.categories = [];
 
         // 定义分类配置映射
@@ -187,39 +189,34 @@ class FileGroupNode extends vscode.TreeItem {
             {
                 key: 'direct',
                 items: buckets.direct,
-                labelZh: '变量赋值 (Write)',
-                labelEn: 'Direct Writes'
+                label: vscode.l10n.t('category.direct')
             },
             {
                 key: 'prop',
                 items: buckets.prop,
-                labelZh: '属性/链式修改 (Prop)',
-                labelEn: 'Property/Chained'
+                label: vscode.l10n.t('category.prop')
             },
             {
                 key: 'setter',
                 items: buckets.setter,
-                labelZh: 'Setter 调用',
-                labelEn: 'Setter Calls'
+                label: vscode.l10n.t('category.setter')
             },
             {
                 key: 'method',
                 items: buckets.method,
-                labelZh: '方法调用 (Receiver)',
-                labelEn: 'Instance Methods'
+                label: vscode.l10n.t('category.method')
             },
             {
                 key: 'value',
                 items: buckets.value,
-                labelZh: '读取/作为参数 (Read)',
-                labelEn: 'Value Access'
+                label: vscode.l10n.t('category.value')
             }
         ];
 
         // 遍历配置，仅添加有数据的分类
         for (const def of categoryDefinitions) {
             if (def.items.length > 0) {
-                const labelText = useZh ? def.labelZh : def.labelEn;
+                const labelText = def.label;
                 const finalLabel = `${labelText} - ${def.items.length}`;
                 this.categories.push(new CategoryNode(finalLabel, def.key, def.items));
             }

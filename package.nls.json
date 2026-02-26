@@ -2,10 +2,5 @@
     "command.analyze": "🔍 Analyze Read/Write (Deep Ref)",
     "command.clear": "Clear Analysis History",
     "view.name": "Semantic Ref Analysis",
-    "group.direct": "Direct Assignment",
-    "group.prop": "Property/Chained Mod",
-    "group.setter": "Setter Calls",
-    "group.method": "Instance Methods",
-    "group.value": "Value Access",
-    "history.title": "Analysis: "
+    "setting.desc": "Custom modification verb prefixes to identify setter or modification class methods (e.g., ['push', 'pop'])."
 }

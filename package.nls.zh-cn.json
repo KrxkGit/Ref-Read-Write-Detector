@@ -2,10 +2,5 @@
     "command.analyze": "🔍 分析读写引用 (Deep Ref)",
     "command.clear": "清空分析历史",
     "view.name": "语义引用分析",
-    "group.direct": "变量赋值",
-    "group.prop": "属性/链式修改",
-    "group.setter": "方法调用 (Setter)",
-    "group.method": "消息发送 (Instance)",
-    "group.value": "纯取值",
-    "history.title": "分析: "
+    "setting.desc": "自定义修改性动词前缀，用于识别 Setter 或修改类方法 (例如: ['push', 'pop'])。"
 }
