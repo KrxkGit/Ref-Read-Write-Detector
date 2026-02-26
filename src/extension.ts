@@ -89,49 +89,112 @@ class FileGroupNode extends vscode.TreeItem {
     }
 
     async calculate(locations: vscode.Location[]) {
+        // 初始化分类桶
         const buckets: any = { direct: [], prop: [], setter: [], method: [], value: [] };
         const isObjC = this.langId.startsWith('objective');
+
+        // 预编译正则所需的变量，避免循环内重复计算
+        const varName = this.varName;
+        const capVarName = varName.charAt(0).toUpperCase() + varName.slice(1);
+
+        // 定义修改性动词前缀 (用于猜测方法意图)
+        const mutatingPrefixes = ['set', 'add', 'remove', 'insert', 'delete', 'update', 'append', 'replace', 'clear', 'reset', 'sort', 'exchange'];
+
+        // 1. [Direct Write] 匹配: var = ... 或 var += ... (排除前面有点的情况)
+        const directWriteRegex = new RegExp(`(?<!\\.|@)\\b${varName}\\b\\s*([-+*/%&|^]?=|\\+\\+|--)`);
+
+        // 2. [Dot Setter] 匹配: .var = ... (例如 self.var = 1)
+        const dotSetterRegex = new RegExp(`\\.\\b${varName}\\b\\s*([-+*/%&|^]?=|\\+\\+|--)`);
+
+        // 3. [Chained Modify] 匹配: var.child = ... (例如 self.view.frame = ...)
+        // 允许前面有前缀，且后面紧跟 .属性 = 
+        const chainedModifyRegex = new RegExp(`(?:\\.|^|\\s)\\b${varName}\\b\\.[a-zA-Z0-9_]+\\s*([-+*/%&|^]?=|\\+\\+|--)`);
+
+        // 4. [Method Receiver] 匹配: [var method] 或 [self.var method]
+        // 捕获组1: 方法名 (用于后续判断是否是修改性方法)
+        const methodReceiverRegex = new RegExp(`\\[\\s*(?:[\\w]+\\.)?\\b${varName}\\b\\s+([a-zA-Z0-9_]+)`);
+
+        // 5. [Explicit Setter] 匹配: setVar:
+        const explicitSetterName = `set${capVarName}:`;
 
         for (const loc of locations) {
             const doc = await vscode.workspace.openTextDocument(loc.uri);
             const lineText = doc.lineAt(loc.range.start.line).text;
             const trimmedText = lineText.trim();
-            if (trimmedText.startsWith('@implementation') || trimmedText.startsWith('@interface')) continue;
+
+            // 跳过声明行
+            if (trimmedText.startsWith('@implementation') || trimmedText.startsWith('@interface') || trimmedText.startsWith('@property')) continue;
 
             const item = new ReferenceItem(trimmedText, loc);
             let handled = false;
 
             if (isObjC) {
-                const varName = this.varName;
-                const isDirect = new RegExp(`\\b${varName}\\b\\s*=[^=]`).test(lineText);
-                const isPropChain = new RegExp(`\\b${varName}\\b(\\.[a-zA-Z0-9_]+)+\\s*=[^=]`).test(lineText);
-                const setterName = `set${varName.charAt(0).toUpperCase()}${varName.slice(1)}:`;
-                const isSetter = lineText.includes(setterName);
-                const isMethodCall = new RegExp(`\\[.*\\b${varName}\\b.*\\s+[a-zA-Z0-9_]+(:|\\])`).test(lineText);
+                // 预处理：去除注释和字符串内容，防止误判 (简单过滤)
+                const cleanLine = lineText.replace(/\/\/.*|\/\*[\s\S]*?\*\/|@"[^"]*"/g, '');
 
-                if (isDirect) { item.iconPath = new vscode.ThemeIcon('record-keys', new vscode.ThemeColor('debugIcon.stepOverForeground')); buckets.direct.push(item); handled = true; }
-                else if (isPropChain) { item.iconPath = new vscode.ThemeIcon('symbol-property', new vscode.ThemeColor('charts.orange')); buckets.prop.push(item); handled = true; }
-                else if (isSetter) { item.iconPath = new vscode.ThemeIcon('symbol-interface', new vscode.ThemeColor('charts.yellow')); buckets.setter.push(item); handled = true; }
-                else if (isMethodCall) { item.iconPath = new vscode.ThemeIcon('symbol-method', new vscode.ThemeColor('debugIcon.stepIntoForeground')); buckets.method.push(item); handled = true; }
+                // 优先级判断逻辑
+
+                // A. 显式 Setter 方法 或 点语法 Setter
+                if (cleanLine.includes(explicitSetterName) || dotSetterRegex.test(cleanLine)) {
+                    item.iconPath = new vscode.ThemeIcon('symbol-interface', new vscode.ThemeColor('charts.yellow'));
+                    buckets.setter.push(item);
+                    handled = true;
+                }
+                // B. 直接变量赋值 (Direct Write)
+                else if (directWriteRegex.test(cleanLine)) {
+                    item.iconPath = new vscode.ThemeIcon('edit', new vscode.ThemeColor('debugIcon.stepOverForeground'));
+                    buckets.direct.push(item);
+                    handled = true;
+                }
+                // C. 链式属性修改 (Chained Modification)
+                else if (chainedModifyRegex.test(cleanLine)) {
+                    item.iconPath = new vscode.ThemeIcon('symbol-property', new vscode.ThemeColor('charts.orange'));
+                    buckets.prop.push(item);
+                    handled = true;
+                }
+                // D. 方法调用 (作为接收者)
+                else {
+                    const methodMatch = cleanLine.match(methodReceiverRegex);
+                    if (methodMatch) {
+                        const methodName = methodMatch[1]; // 获取方法名
+                        const isMutating = mutatingPrefixes.some(prefix => methodName.toLowerCase().startsWith(prefix));
+
+                        if (isMutating) {
+                            // 修改性方法 (红色图标)
+                            item.iconPath = new vscode.ThemeIcon('symbol-event', new vscode.ThemeColor('charts.red'));
+                            item.label = `【Mutating】` + item.label; // 可选：在标签后追加提示
+                        } else {
+                            // 只读/普通方法 (蓝色图标)
+                            item.iconPath = new vscode.ThemeIcon('symbol-method', new vscode.ThemeColor('debugIcon.stepIntoForeground'));
+                        }
+                        buckets.method.push(item);
+                        handled = true;
+                    }
+                }
             }
 
+            // 非 ObjC 或 ObjC 中未被上述逻辑捕获的情况 (Fallback)
             if (!handled) {
+                // 简单的通用赋值检测
                 if (new RegExp(`\\b${this.varName}\\b\\s*=[^=]`).test(lineText)) {
-                    item.iconPath = new vscode.ThemeIcon('record-keys'); buckets.direct.push(item);
+                    item.iconPath = new vscode.ThemeIcon('edit');
+                    buckets.direct.push(item);
                 } else {
-                    item.iconPath = new vscode.ThemeIcon('book', new vscode.ThemeColor('charts.blue')); buckets.value.push(item);
+                    // 默认为读取/作为参数
+                    item.iconPath = new vscode.ThemeIcon('book', new vscode.ThemeColor('charts.blue'));
+                    buckets.value.push(item);
                 }
             }
         }
 
-        // 此处可以根据 VS Code 语言设置选择显示中文还是英文标签
+        // 构建分类节点
         const useZh = vscode.env.language === 'zh-cn';
         this.categories = [
-            new CategoryNode(useZh ? `变量赋值 - ${buckets.direct.length}` : `Direct Writes - ${buckets.direct.length}`, 'direct', buckets.direct),
-            new CategoryNode(useZh ? `属性/链式修改 - ${buckets.prop.length}` : `Property/Chained - ${buckets.prop.length}`, 'prop', buckets.prop),
-            new CategoryNode(useZh ? `方法调用 (Setter) - ${buckets.setter.length}` : `Setter Calls - ${buckets.setter.length}`, 'setter', buckets.setter),
-            new CategoryNode(useZh ? `消息发送 (Instance) - ${buckets.method.length}` : `Instance Methods - ${buckets.method.length}`, 'method', buckets.method),
-            new CategoryNode(useZh ? `纯取值 - ${buckets.value.length}` : `Value Access - ${buckets.value.length}`, 'value', buckets.value)
+            new CategoryNode(useZh ? `变量赋值 (Write) - ${buckets.direct.length}` : `Direct Writes - ${buckets.direct.length}`, 'direct', buckets.direct),
+            new CategoryNode(useZh ? `属性/链式修改 (Prop) - ${buckets.prop.length}` : `Property/Chained - ${buckets.prop.length}`, 'prop', buckets.prop),
+            new CategoryNode(useZh ? `Setter 调用 - ${buckets.setter.length}` : `Setter Calls - ${buckets.setter.length}`, 'setter', buckets.setter),
+            new CategoryNode(useZh ? `方法调用 (Receiver) - ${buckets.method.length}` : `Instance Methods - ${buckets.method.length}`, 'method', buckets.method),
+            new CategoryNode(useZh ? `读取/作为参数 (Read) - ${buckets.value.length}` : `Value Access - ${buckets.value.length}`, 'value', buckets.value)
         ];
     }
 }
@@ -152,7 +215,7 @@ class CategoryNode extends vscode.TreeItem {
 }
 
 class ReferenceItem extends vscode.TreeItem {
-    constructor(public readonly label: string, public readonly location: vscode.Location) {
+    constructor(public label: string, public readonly location: vscode.Location) {
         super(label, vscode.TreeItemCollapsibleState.None);
         this.description = `L${this.location.range.start.line + 1}`;
         this.command = { command: 'vscode.open', title: "Jump", arguments: [this.location.uri, { selection: this.location.range }] };
