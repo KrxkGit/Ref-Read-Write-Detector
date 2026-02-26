@@ -100,18 +100,13 @@ class FileGroupNode extends vscode.TreeItem {
         // 定义修改性动词前缀 (用于猜测方法意图)
         const mutatingPrefixes = ['set', 'add', 'remove', 'insert', 'delete', 'update', 'append', 'replace', 'clear', 'reset', 'sort', 'exchange'];
 
-        // 在匹配 = 的地方增加了 (?!=) 断言，防止匹配到 ==, ===, >=, <=, !=
-        // 注意：[-+*/%&|^] 包含了常见的 +=, -= 等，但不包含 <, >, !，所以 >=, <=, != 本身就不会被前面的字符集匹配，
-        // 唯独 == 会被匹配，所以重点是排除 ==。
-
-        // 1. [Direct Write] 匹配: var = ... 或 var += ... (排除前面有点的情况)
-        // 修复逻辑：([-+*/%&|^]?=(?!=)|\\+\\+|--)
+        // 1. [Direct Write] 匹配: var = ... 或 var += ...
         const directWriteRegex = new RegExp(`(?<!\\.|@)\\b${varName}\\b\\s*([-+*/%&|^]?=(?!=)|\\+\\+|--)`);
 
-        // 2. [Dot Setter] 匹配: .var = ... (例如 self.var = 1)
+        // 2. [Dot Setter] 匹配: .var = ... 
         const dotSetterRegex = new RegExp(`\\.\\b${varName}\\b\\s*([-+*/%&|^]?=(?!=)|\\+\\+|--)`);
 
-        // 3. [Chained Modify] 匹配: var.child = ... (例如 self.view.frame = ...)
+        // 3. [Chained Modify] 匹配: var.child = ... 
         const chainedModifyRegex = new RegExp(`(?:\\.|^|\\s)\\b${varName}\\b\\.[a-zA-Z0-9_]+\\s*([-+*/%&|^]?=(?!=)|\\+\\+|--)`);
 
         // 4. [Method Receiver] 匹配: [var method] 或 [self.var method]
@@ -132,10 +127,8 @@ class FileGroupNode extends vscode.TreeItem {
             let handled = false;
 
             if (isObjC) {
-                // 预处理：去除注释和字符串内容，防止误判
+                // 预处理：去除注释和字符串内容
                 const cleanLine = lineText.replace(/\/\/.*|\/\*[\s\S]*?\*\/|@"[^"]*"/g, '');
-
-                // 优先级判断逻辑
 
                 // A. 显式 Setter 方法 或 点语法 Setter
                 if (cleanLine.includes(explicitSetterName) || dotSetterRegex.test(cleanLine)) {
@@ -174,9 +167,8 @@ class FileGroupNode extends vscode.TreeItem {
                 }
             }
 
-            // 非 ObjC 或 ObjC 中未被上述逻辑捕获的情况 (Fallback)
+            // Fallback
             if (!handled) {
-                // 这里的通用检测也建议加上 (?!=) 以防万一，虽然上面的逻辑应该已经拦截了
                 if (new RegExp(`\\b${this.varName}\\b\\s*=(?!=)`).test(lineText)) {
                     item.iconPath = new vscode.ThemeIcon('edit');
                     buckets.direct.push(item);
@@ -187,15 +179,51 @@ class FileGroupNode extends vscode.TreeItem {
             }
         }
 
-        // 构建分类节点
         const useZh = vscode.env.language === 'zh-cn';
-        this.categories = [
-            new CategoryNode(useZh ? `变量赋值 (Write) - ${buckets.direct.length}` : `Direct Writes - ${buckets.direct.length}`, 'direct', buckets.direct),
-            new CategoryNode(useZh ? `属性/链式修改 (Prop) - ${buckets.prop.length}` : `Property/Chained - ${buckets.prop.length}`, 'prop', buckets.prop),
-            new CategoryNode(useZh ? `Setter 调用 - ${buckets.setter.length}` : `Setter Calls - ${buckets.setter.length}`, 'setter', buckets.setter),
-            new CategoryNode(useZh ? `方法调用 (Receiver) - ${buckets.method.length}` : `Instance Methods - ${buckets.method.length}`, 'method', buckets.method),
-            new CategoryNode(useZh ? `读取/作为参数 (Read) - ${buckets.value.length}` : `Value Access - ${buckets.value.length}`, 'value', buckets.value)
+        this.categories = [];
+
+        // 定义分类配置映射
+        const categoryDefinitions = [
+            {
+                key: 'direct',
+                items: buckets.direct,
+                labelZh: '变量赋值 (Write)',
+                labelEn: 'Direct Writes'
+            },
+            {
+                key: 'prop',
+                items: buckets.prop,
+                labelZh: '属性/链式修改 (Prop)',
+                labelEn: 'Property/Chained'
+            },
+            {
+                key: 'setter',
+                items: buckets.setter,
+                labelZh: 'Setter 调用',
+                labelEn: 'Setter Calls'
+            },
+            {
+                key: 'method',
+                items: buckets.method,
+                labelZh: '方法调用 (Receiver)',
+                labelEn: 'Instance Methods'
+            },
+            {
+                key: 'value',
+                items: buckets.value,
+                labelZh: '读取/作为参数 (Read)',
+                labelEn: 'Value Access'
+            }
         ];
+
+        // 遍历配置，仅添加有数据的分类
+        for (const def of categoryDefinitions) {
+            if (def.items.length > 0) {
+                const labelText = useZh ? def.labelZh : def.labelEn;
+                const finalLabel = `${labelText} - ${def.items.length}`;
+                this.categories.push(new CategoryNode(finalLabel, def.key, def.items));
+            }
+        }
     }
 }
 

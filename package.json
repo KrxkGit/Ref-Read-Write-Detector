@@ -2,7 +2,7 @@
   "name": "ref-read-write-detector",
   "displayName": "ref-read-write-detector",
   "description": "",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "engines": {
     "vscode": "^1.100.0"
   },
