@@ -25,7 +25,14 @@ export function activate(context: vscode.ExtensionContext) {
         provider.clearAll();
     });
 
-    context.subscriptions.push(analyzeCmd, clearCmd, treeView);
+    let removeCmd = vscode.commands.registerCommand('ref-read-write-detector.internal.removeHistoryGroup', (node: vscode.TreeItem) => {
+        if (node instanceof HistoryGroupNode) {
+            provider.removeTreeNode(node);
+            provider.refresh();
+        }
+    });
+
+    context.subscriptions.push(analyzeCmd, clearCmd, removeCmd, treeView);
 }
 
 type RefNode = HistoryGroupNode | FileGroupNode | CategoryNode | ReferenceItem;
@@ -35,7 +42,9 @@ class RefReadWriteProvider implements vscode.TreeDataProvider<RefNode> {
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
     private history: HistoryGroupNode[] = [];
 
-    refresh(): void { this._onDidChangeTreeData.fire(); }
+    refresh(): void {
+        this._onDidChangeTreeData.fire();
+    }
     clearAll(): void { this.history = []; this.refresh(); }
     getTreeItem(element: RefNode): vscode.TreeItem { return element; }
 
@@ -56,15 +65,26 @@ class RefReadWriteProvider implements vscode.TreeDataProvider<RefNode> {
         if (element instanceof CategoryNode) return element.references;
         return [];
     }
+
+    async removeTreeNode(node: HistoryGroupNode) {
+        const indexToRemove = this.history.indexOf(node);
+        if (indexToRemove !== -1) {
+            this.history.splice(indexToRemove, 1);
+        }
+    }
 }
 
 class HistoryGroupNode extends vscode.TreeItem {
     public fileGroups: FileGroupNode[] = [];
     constructor(public readonly varName: string, public readonly langId: string, private locations: vscode.Location[]) {
-        // 使用 l10n 或 package.nls 中的前缀
         super(`${vscode.l10n.t('history.title')}: ${varName}`, vscode.TreeItemCollapsibleState.Expanded);
         this.iconPath = new vscode.ThemeIcon('history', new vscode.ThemeColor('charts.purple'));
         this.description = `[${langId}]`;
+
+        this.tooltip = new vscode.MarkdownString(`**${varName}** (${langId})\n\n${vscode.l10n.t('history.removeTooltip')}`);
+        this.tooltip.supportHtml = true;
+
+        this.contextValue = 'historyGroup';
     }
 
     async buildFileGroups() {
@@ -74,8 +94,9 @@ class HistoryGroupNode extends vscode.TreeItem {
             if (!fileMap.has(path)) fileMap.set(path, []);
             fileMap.get(path)!.push(loc);
         }
+        const defaultExpand = ConfigManager.defaultExpandAllFileGroup;
         for (const [path, locs] of fileMap) {
-            const fileGroup = new FileGroupNode(path, this.varName, this.langId);
+            const fileGroup = new FileGroupNode(path, this.varName, this.langId, defaultExpand);
             await fileGroup.calculate(locs);
             this.fileGroups.push(fileGroup);
         }
@@ -84,9 +105,9 @@ class HistoryGroupNode extends vscode.TreeItem {
 
 class FileGroupNode extends vscode.TreeItem {
     public categories: CategoryNode[] = [];
-    constructor(public readonly filePath: string, private varName: string, private langId: string) {
+    constructor(public readonly filePath: string, private varName: string, private langId: string, private defaultExpand: boolean) {
         const fileName = filePath.split('/').pop() || filePath;
-        super(fileName, vscode.TreeItemCollapsibleState.Expanded);
+        super(fileName, defaultExpand ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
         this.resourceUri = vscode.Uri.file(filePath);
         this.iconPath = vscode.ThemeIcon.File;
     }

@@ -4,9 +4,11 @@ export class ConfigManager {
     // 1. 定义静态变量，全局直接访问 ConfigManager.mutatingPrefixes 即可
     public static mutatingPrefixes: string[] = [];
     public static mutatingPrompt: string = '';
+    public static defaultExpandAllFileGroup: boolean = false;
     private static identifier: string = 'ref-read-write-detector';
     private static mutatingPrefixesIdentifier: string = 'customMutatingPrefixes';
     private static mutatingPromptIdentifier: string = 'customMutatingPrompt';
+    private static defaultExpandAllFileGroupIdentifier: string = 'defaultExpandAllFileGroup';
 
     // 2. 初始化方法：读取配置并开启监听
     public static init() {
@@ -19,6 +21,8 @@ export class ConfigManager {
             if (e.affectsConfiguration(`${this.identifier}.${this.mutatingPrefixesIdentifier}`)) {
                 needChange = true;
             } else if (e.affectsConfiguration(`${this.identifier}.${this.mutatingPromptIdentifier}`)) {
+                needChange = true;
+            } else if (e.affectsConfiguration(`${this.identifier}.${this.defaultExpandAllFileGroupIdentifier}`)) {
                 needChange = true;
             }
 
@@ -44,5 +48,8 @@ export class ConfigManager {
 
         // 自定义 Mutating 附加文本提示
         this.mutatingPrompt = config.get<string>(this.mutatingPromptIdentifier, '');
+
+        // 默认展开所有文件分析结果
+        this.defaultExpandAllFileGroup = config.get<boolean>(this.defaultExpandAllFileGroupIdentifier, false);
     }
 }

@@ -2,7 +2,7 @@
   "name": "ref-read-write-detector",
   "displayName": "ref-read-write-detector",
   "description": "",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -32,6 +32,7 @@
       "ref-detector-sidebar": [
         {
           "id": "refWriteView",
+          "icon": "media/sidebar-icon.svg",
           "name": "%view.name%"
         }
       ]
@@ -48,6 +49,10 @@
       {
         "command": "ref-read-write-detector.analyze",
         "title": "%command.analyze%"
+      },
+      {
+        "command": "ref-read-write-detector.internal.removeHistoryGroup",
+        "title": "%command.remove%"
       },
       {
         "command": "ref-read-write-detector.clear",
@@ -68,6 +73,13 @@
           "command": "ref-read-write-detector.clear",
           "when": "view == refWriteView",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "ref-read-write-detector.internal.removeHistoryGroup",
+          "when": "view == refWriteView && viewItem == historyGroup",
+          "group": "inline"
         }
       ]
     },
@@ -100,6 +112,11 @@
             "type": "string",
             "default": "【Mutating】",
             "description": "%setting.customMutatingPrompt%"
+          },
+          "ref-read-write-detector.defaultExpandAllFileGroup": {
+            "type": "boolean",
+            "default": false,
+            "description": "%setting.defaultExpandAllFileGroup%"
           }
         }
       }

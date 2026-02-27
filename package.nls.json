@@ -1,7 +1,9 @@
 {
     "command.analyze": "🔍 Analyze Read/Write (Deep Ref)",
+    "command.remove": "Remove current history item",
     "command.clear": "Clear Analysis History",
     "view.name": "Semantic Ref Analysis",
     "setting.customMutatingPrefixes": "Modifying verb prefixes used for heuristic identification of setter or modifying class methods (e.g., ['push', 'pop']).",
-    "setting.customMutatingPrompt": "Modified method analysis results are indicated with a prefix and displayed in the search analysis results to enhance visual recognition."
+    "setting.customMutatingPrompt": "Modified method analysis results are indicated with a prefix and displayed in the search analysis results to enhance visual recognition.",
+    "setting.defaultExpandAllFileGroup": "Expand all file result groups by default"
 }
