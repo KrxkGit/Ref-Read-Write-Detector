@@ -2,5 +2,6 @@
     "command.analyze": "🔍 分析读写引用 (Deep Ref)",
     "command.clear": "清空分析历史",
     "view.name": "语义引用分析",
-    "setting.desc": "自定义修改性动词前缀，用于识别 Setter 或修改类方法 (例如: ['push', 'pop'])。"
+    "setting.customMutatingPrefixes": "修改性动词前缀，用于启发式识别 Setter 或修改类方法 (例如: ['push', 'pop'])。",
+    "setting.customMutatingPrompt": "修改性方法分析结果提示前缀，展示在查找分析结果中以增强视觉识别。"
 }

@@ -102,6 +102,7 @@ class FileGroupNode extends vscode.TreeItem {
 
         // 定义修改性动词前缀 (用于猜测方法意图)
         const mutatingPrefixes = ConfigManager.mutatingPrefixes;
+        const mutatingPrompt = ConfigManager.mutatingPrompt;
 
         // 1. [Direct Write] 匹配: var = ... 或 var += ...
         const directWriteRegex = new RegExp(`(?<!\\.|@)\\b${varName}\\b\\s*([-+*/%&|^]?=(?!=)|\\+\\+|--)`);
@@ -160,7 +161,7 @@ class FileGroupNode extends vscode.TreeItem {
 
                         if (isMutating) {
                             item.iconPath = new vscode.ThemeIcon('symbol-event', new vscode.ThemeColor('charts.red'));
-                            item.label = `【Mutating】` + item.label;
+                            item.label = `${mutatingPrompt}${item.label}`;
                         } else {
                             item.iconPath = new vscode.ThemeIcon('symbol-method', new vscode.ThemeColor('debugIcon.stepIntoForeground'));
                         }

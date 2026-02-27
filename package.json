@@ -2,7 +2,7 @@
   "name": "ref-read-write-detector",
   "displayName": "ref-read-write-detector",
   "description": "",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -80,8 +80,26 @@
             "items": {
               "type": "string"
             },
-            "default": [],
-            "description": "%setting.desc%"
+            "default": [
+              "set",
+              "add",
+              "remove",
+              "insert",
+              "delete",
+              "update",
+              "append",
+              "replace",
+              "clear",
+              "reset",
+              "sort",
+              "exchange"
+            ],
+            "description": "%setting.customMutatingPrefixes%"
+          },
+          "ref-read-write-detector.customMutatingPrompt": {
+            "type": "string",
+            "default": "【Mutating】",
+            "description": "%setting.customMutatingPrompt%"
           }
         }
       }

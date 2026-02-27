@@ -2,5 +2,6 @@
     "command.analyze": "🔍 Analyze Read/Write (Deep Ref)",
     "command.clear": "Clear Analysis History",
     "view.name": "Semantic Ref Analysis",
-    "setting.desc": "Custom modification verb prefixes to identify setter or modification class methods (e.g., ['push', 'pop'])."
+    "setting.customMutatingPrefixes": "Modifying verb prefixes used for heuristic identification of setter or modifying class methods (e.g., ['push', 'pop']).",
+    "setting.customMutatingPrompt": "Modified method analysis results are indicated with a prefix and displayed in the search analysis results to enhance visual recognition."
 }
