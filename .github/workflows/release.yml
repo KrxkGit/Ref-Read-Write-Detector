@@ -1,0 +1,63 @@
+name: Create Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: -1
+
+    - name: Setup Node.js (match local version)
+      uses: actions/setup-node@v4
+      with:
+        node-version: '25.2.1'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Install vsce (specific version)
+      run: npm install -g @vscode/vsce@2.15.0
+
+    - name: Verify versions
+      run: |
+        echo "Node version: $(node --version)"
+        echo "NPM version: $(npm --version)"
+        echo "VSCE version: $(vsce --version)"
+
+    - name: Package extension
+      run: vsce package
+
+    - name: Find VSIX file
+      id: find-vsix
+      run: |
+        VSIX_FILE=$(ls *.vsix | head -n 1)
+        echo "VSIX_FILE=$VSIX_FILE" >> $GITHUB_OUTPUT
+        echo "Found VSIX file: $VSIX_FILE"
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release ${{ github.ref_name }}
+        body: |
+          ## Release Notes
+          
+          Auto-generated release for tag ${{ github.ref_name }}
+          
+          ### Changes
+          - See commit history for details
+        draft: false
+        prerelease: false
+        files: |
+          ${{ steps.find-vsix.outputs.VSIX_FILE }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
